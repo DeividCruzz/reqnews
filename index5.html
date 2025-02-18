@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Requisições</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 10px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        input, textarea, select, button {
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .requisicao {
+            background: white;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border-left: 5px solid #007bff;
+            box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
+        }
+        .status {
+            font-weight: bold;
+        }
+        .pendente { color: red; }
+        .andamento { color: orange; }
+        .concluido { color: green; }
+        .botoes {
+            display: flex;
+            gap: 5px;
+        }
+        .botoes button {
+            flex: 1;
+            padding: 5px;
+            font-size: 14px;
+        }
+        #listaRequisicoes {
+            max-height: 400px; /* Altura máxima para o container */
+            overflow-y: auto; /* Habilita a rolagem vertical */
+        }
+    </style>
+</head>
+<body>
+    <h1>📋 Sistema de Atendimento de Requisições</h1>
+    <div class="container">
+        <h3>Nova Requisição</h3>
+        <input type="text" id="nome" placeholder="N° Requisição">
+        <textarea id="descricao" placeholder="Descrição da Requisição"></textarea>
+        <select id="prioridade">
+            <option value="Baixa">Baixa</option>
+            <option value="Média">Média</option>
+            <option value="Alta">Alta</option>
+        </select>
+        <input type="text" id="responsavel" placeholder="Responsável">
+        <button onclick="adicionarRequisicao()">Adicionar Requisição</button>
+    </div>
+    <h3>🔍 Pesquisar Requisições</h3>
+    <input type="text" id="pesquisa" placeholder="Digite para buscar..." oninput="filtrarRequisicoes()">
+    <h3>📌 Requisições</h3>
+    <button onclick="exportarParaTxt()">📄 Exportar para TXT</button>
+    <button onclick="exportarParaCsv()">📄 Exportar para CSV</button>
+    <div id="listaRequisicoes"></div>
+
+    <script>
+        let requisicoes = JSON.parse(localStorage.getItem("requisicoes")) || [];
+        atualizarLista();
+
+        function salvarNoLocalStorage() {
+            localStorage.setItem("requisicoes", JSON.stringify(requisicoes));
+        }
+
+        function adicionarRequisicao() {
+            const nome = document.getElementById("nome").value;
+            const descricao = document.getElementById("descricao").value;
+            const prioridade = document.getElementById("prioridade").value;
+            const responsavel = document.getElementById("responsavel").value;
+
+            if (nome === "" || descricao === "" || responsavel === "") {
+                alert("Por favor, preencha todos os campos!");
+                return;
+            }
+            if (requisicoes.some(req => req.nome === nome)) {
+                alert("Já existe uma requisição com este número!");
+                return;
+            }
+            const novaRequisicao = {
+                id: Date.now(),
+                nome,
+                descricao,
+                prioridade,
+                responsavel,
+                status: "Pendente"
+            };
+
+            requisicoes.push(novaRequisicao);
+            salvarNoLocalStorage();
+            atualizarLista();
+            limparCampos();
+        }
+
+        function atualizarLista() {
+            const lista = document.getElementById("listaRequisicoes");
+            lista.innerHTML = "";
+            requisicoes.forEach((req) => {
+                const div = document.createElement("div");
+                div.classList.add("requisicao");
+
+                let statusClass = "pendente";
+                if (req.status === "Em andamento") statusClass = "andamento";
+                if (req.status === "Concluído") statusClass = "concluido";
+
+                div.innerHTML = `
+                    <p><strong>📝 N° Req:</strong> ${req.nome}</p>
+                    <p><strong>📌 Descrição:</strong> ${req.descricao}</p>
+                    <p><strong>⚡ Prioridade:</strong> ${req.prioridade}</p>
+                    <p><strong>👤 Responsável:</strong> ${req.responsavel}</p>
+                    <p class="status ${statusClass}"><strong>🏷️ Status:</strong> ${req.status}</p>
+                    <div class="botoes">
+                        <button onclick="atualizarStatus(${req.id}, 'Em andamento')" style="background: orange;">Em andamento</button>
+                        <button onclick="atualizarStatus(${req.id}, 'Concluído')" style="background: green;">Concluído</button>
+                        <button onclick="excluirRequisicao(${req.id})" style="background: red;">Excluir</button>
+                    </div>
+                `;
+                lista.appendChild(div);
+            });
+        }
+
+        function atualizarStatus(id, novoStatus) {
+            requisicoes = requisicoes.map(req =>
+                req.id === id ? { ...req, status: novoStatus } : req
+            );
+            salvarNoLocalStorage();
+            atualizarLista();
+        }
+
+        function excluirRequisicao(id) {
+            requisicoes = requisicoes.filter(req => req.id !== id);
+            salvarNoLocalStorage();
+            atualizarLista();
+        }
+
+        function filtrarRequisicoes() {
+            const termo = document.getElementById("pesquisa").value.toLowerCase();
+            document.querySelectorAll(".requisicao").forEach(div => {
+                const texto = div.innerText.toLowerCase();
+                div.style.display = texto.includes(termo) ? "block" : "none";
+            });
+        }
+
+        function limparCampos() {
+            document.getElementById("nome").value = "";
+            document.getElementById("descricao").value = "";
+            document.getElementById("prioridade").value = "Média";
+            document.getElementById("responsavel").value = "";
+        }
+
+        // Função para exportar para TXT
+        function exportarParaTxt() {
+            if (requisicoes.length === 0) {
+                alert("Nenhuma requisição para exportar!");
+                return;
+            }
+
+            let texto = "📋 Requisições Registradas:\n\n";
+            requisicoes.forEach(req => {
+                texto += `📝 N° Req: ${req.nome}\n`;
+                texto += `📌 Descrição: ${req.descricao}\n`;
+                texto += `⚡ Prioridade: ${req.prioridade}\n`;
+                texto += `👤 Responsável: ${req.responsavel}\n`;
+                texto += `🏷️ Status: ${req.status}\n`;
+                texto += "---------------------------\n";
+            });
+
+            // Criar um Blob com o texto
+            const blob = new Blob([texto], { type: "text/plain" });
+
+            // Criar um link temporário para baixar o arquivo
+            const link = document.createElement("a");
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "requisicoes.txt";
+
+            // Adicionar ao corpo, simular clique e remover
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Função para exportar para CSV
+        function exportarParaCsv() {
+            if (requisicoes.length === 0) {
+                alert("Nenhuma requisição para exportar!");
+                return;
+            }
+
+            let csv = "N° Req,Descrição,Prioridade,Responsável,Status\n";
+            requisicoes.forEach(req => {
+                csv += `${req.nome},"${req.descricao}",${req.prioridade},${req.responsavel},${req.status}\n`;
+            });
+
+            // Criar um Blob com o conteúdo CSV
+            const blob = new Blob([csv], { type: "text/csv" });
+
+            // Criar um link temporário para baixar o arquivo
+            const link = document.createElement("a");
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "requisicoes.csv";
+
+            // Adicionar ao corpo, simular clique e remover
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
